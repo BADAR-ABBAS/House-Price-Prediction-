@@ -6,6 +6,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error,r2_score
 from sklearn.preprocessing import OneHotEncoder,StandardScaler
 from sklearn.ensemble import RandomForestRegressor,GradientBoostingRegressor
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import GradientBoostingRegressor
 
 df = pd.read_csv('house_prices_prediction.csv')
 
@@ -42,14 +44,71 @@ def plot_pred_vs_actual(y_test,pred):
 
 def Regression(x,y):
     x_train , x_test , y_train , y_test = train_test_split (x,y,random_state=42)
+
+    param_grid = {
+        'max_depth': [ 3, 4, 5, 6, 7, 8, 9, 10 , None],
+        'min_samples_split': [2, 3, 4, 5,6,7,8,9,10],
+        'min_samples_leaf': [1, 2, 4, 8],
+        'max_features': ['sqrt', 'log2', None],
+        'n_estimators': [100, 200]
+    }
+
+    #Find Out parameters for max_depth and min_samples_split for Random Forest Regressor
+    grid_search = GridSearchCV(
+        estimator=RandomForestRegressor(random_state=42),
+        param_grid=param_grid,
+        cv=5,
+        scoring='r2',
+        n_jobs=-1,
+        )
+    
+    grid_search.fit(x_train, y_train.values.ravel())
+    RDF_best_model = grid_search.best_estimator_
+    print("Best parameters found: ", grid_search.best_params_)
+
+
+
+    # Find Parameters for max_depth and min_samples_split for Gradient Boosting Regressor
+    param_grid_gb = {
+    'n_estimators': [50, 100, 150, 200],
+    'learning_rate': [0.01, 0.05, 0.1, 0.2],
+    'max_depth': [2, 3, 4, 5],
+    'min_samples_split': [2, 4, 6, 8],
+    'subsample': [0.7, 0.8, 1.0]
+    }
+
+    grid_search_gb = GridSearchCV(
+        estimator=GradientBoostingRegressor(random_state=42),
+        param_grid=param_grid_gb,
+        cv=5,
+        scoring='r2',
+        n_jobs=-1
+    )
+
+    grid_search_gb.fit(x_train, y_train.values.ravel())
+
+    print("Best GB parameters found:", grid_search_gb.best_params_)
+    GB_best_model = grid_search_gb.best_estimator_
+
+    #--------------------------------------------------------------------
     model = {
         "Linear Regression": LinearRegression(),
-        "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42),
-        "Gradient Boosting": GradientBoostingRegressor(random_state=42)
+        "Random Forest": RandomForestRegressor(n_estimators=RDF_best_model.n_estimators,
+                                                random_state=42,
+                                                max_depth=RDF_best_model.max_depth,
+                                                min_samples_split=RDF_best_model.min_samples_split
+                                                ),
+        "Gradient Boosting": GradientBoostingRegressor(learning_rate=GB_best_model.learning_rate, 
+                                                       max_depth=GB_best_model.max_depth, 
+                                                       min_samples_split=GB_best_model.min_samples_split, 
+                                                       n_estimators=GB_best_model.n_estimators, 
+                                                       subsample=GB_best_model.subsample, 
+                                                       random_state=42
+                                                       )
     }
 
     for name, model in model.items():
-        model.fit(x_train,y_train)
+        model.fit(x_train,y_train.values.ravel())
         pred = model.predict(x_test)
 
         mse = mean_squared_error(y_test,pred)
@@ -90,7 +149,7 @@ def Showdata():
     print(df.shape)
     # print(df.isnull().sum())
     # print(df.dtypes)
-    print(df.head())
+    # print(df.head())
     # print(df.info())
     # plt.figure(figsize=(8,5))
     # x = fs[['LotArea' ]]
@@ -102,7 +161,7 @@ def Showdata():
     # ax.set_xlabel("Area")
     # ax.set_ylabel("Price")
     # ax.set_xticks([1,2,3,4,5])
-    plt.show()
+    # plt.show()
 
     # sns.boxplot(x='Floors',y='Price',data=df)
     # plt.xlabel("Bedrooms")
@@ -110,4 +169,4 @@ def Showdata():
     # plt.show()
 
 
-# Showdata()
+Showdata()
