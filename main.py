@@ -8,6 +8,7 @@ from sklearn.preprocessing import OneHotEncoder,StandardScaler
 from sklearn.ensemble import RandomForestRegressor,GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.linear_model import Ridge, Lasso
 
 df = pd.read_csv('house_prices_prediction.csv')
 
@@ -93,6 +94,8 @@ def Regression(x,y):
     #--------------------------------------------------------------------
     model = {
         "Linear Regression": LinearRegression(),
+        "Ridge Regression": Ridge(alpha=1.0, random_state=42),
+        "Lasso Regression": Lasso(alpha=0.1, random_state=42),
         "Random Forest": RandomForestRegressor(n_estimators=RDF_best_model.n_estimators,
                                                 random_state=42,
                                                 max_depth=RDF_best_model.max_depth,
@@ -120,7 +123,7 @@ def Regression(x,y):
         print (f"root Mean square error : {name} : {rmse}")
         print (f"Test R2 score {name} : {test_r2}")
         print (f"Train R2 score {name} : {train_score}")
-        # plot_pred_vs_actual(y_test, pred)
+        plot_pred_vs_actual(y_test, pred)
 
 
 variable_data = df [[]]
@@ -129,7 +132,8 @@ fs = Feature_Scaling(variable_data , numerical_data)
 
 x = fs
 y = df[['SalePrice']]
-Regression(x,y)
+print(y.skew())
+# Regression(x,y)
 
 
 # Print linear correlation values
