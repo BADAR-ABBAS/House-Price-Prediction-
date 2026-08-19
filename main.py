@@ -10,27 +10,32 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
 
-df = pd.read_csv('house_prices_prediction.csv')
 
 
+def Feature_Engineering(x_train_variable_data , x_train_numerical_data , x_test_variable_data , x_test_numerical_data):
 
-def Feature_Engineering(data_in_df):
+    encoder = OneHotEncoder(sparse_output=False , drop='first' , handle_unknown='ignore').set_output(transform="pandas")
+    encoded_data = encoder.fit_transform(x_train_variable_data)
+    X_train = pd.concat([x_train_numerical_data,encoded_data],axis=1)
+    X_test = pd.concat([x_test_numerical_data,encoder.transform(x_test_variable_data)],axis=1)
+    return X_train, X_test
 
-    encoder = OneHotEncoder(sparse_output=False , drop='first').set_output(transform="pandas")
-    encoded_data = encoder.fit_transform(data_in_df)
-    return encoded_data
-
-def Feature_Scaling(variable_data , numerical_data):
+def Feature_Scaling(X_train , X_test):
     
-    engineered_data = Feature_Engineering(variable_data)
-    scaling_data = pd.concat([numerical_data,engineered_data],axis=1)
     std_scaler = StandardScaler()
-    df_standardized = pd.DataFrame(
-        std_scaler.fit_transform(scaling_data),
-        columns=scaling_data.columns
+    X_train_scaled = pd.DataFrame(
+        std_scaler.fit_transform(X_train),
+        columns=X_train.columns , 
+        index=X_train.index
     )
 
-    return df_standardized
+    X_test_scaled = pd.DataFrame(
+            std_scaler.transform(X_test),
+            columns=X_test.columns , 
+            index=X_test.index
+        )
+
+    return X_train_scaled, X_test_scaled
 
 def plot_pred_vs_actual(y_test,pred):
     plt.figure(figsize=(8, 6))
@@ -43,8 +48,11 @@ def plot_pred_vs_actual(y_test,pred):
     plt.show()
 
 
-def Regression(x,y):
-    x_train , x_test , y_train , y_test = train_test_split (x,y,random_state=42)
+def Regression(y_train, y_test, x_train_variable_data, x_train_numerical_data, x_test_variable_data, x_test_numerical_data):
+    x_train , x_test = Feature_Engineering(x_train_variable_data , x_train_numerical_data , x_test_variable_data , x_test_numerical_data)
+    
+
+    scaled_x_train , scaled_x_test = Feature_Scaling(x_train , x_test)
 
     param_grid = {
         'max_depth': [ 3, 4, 5, 6, 7, 8, 9, 10 , None],
@@ -63,7 +71,7 @@ def Regression(x,y):
         n_jobs=-1,
         )
     
-    grid_search.fit(x_train, y_train.values.ravel())
+    grid_search.fit(scaled_x_train, y_train.values.ravel())
     RDF_best_model = grid_search.best_estimator_
     print("Best parameters found: ", grid_search.best_params_)
 
@@ -86,7 +94,7 @@ def Regression(x,y):
         n_jobs=-1
     )
 
-    grid_search_gb.fit(x_train, y_train.values.ravel())
+    grid_search_gb.fit(scaled_x_train, y_train.values.ravel())
 
     print("Best GB parameters found:", grid_search_gb.best_params_)
     GB_best_model = grid_search_gb.best_estimator_
@@ -111,29 +119,35 @@ def Regression(x,y):
     }
 
     for name, model in model.items():
-        model.fit(x_train,y_train.values.ravel())
-        pred = model.predict(x_test)
+        model.fit(scaled_x_train,y_train.values.ravel())
+        pred = model.predict(scaled_x_test)
 
         mse = mean_squared_error(y_test,pred)
         rmse = mse ** 0.5
         test_r2 = r2_score(y_test,pred)
-        train_score = model.score(x_train,y_train)
+        train_score = model.score(scaled_x_train,y_train)
 
         print (f"Mean square error : {name} : {mse}")
         print (f"root Mean square error : {name} : {rmse}")
         print (f"Test R2 score {name} : {test_r2}")
         print (f"Train R2 score {name} : {train_score}")
-        plot_pred_vs_actual(y_test, pred)
+        # plot_pred_vs_actual(y_test, pred)
 
+df = pd.read_csv('house_prices_prediction.csv')
 
-variable_data = df [[]]
-numerical_data = df [['OverallQual','GrLivArea','GarageCars','TotalBsmtSF','YearBuilt','FullBath']]
-fs = Feature_Scaling(variable_data , numerical_data)
-
-x = fs
+x = df[['OverallQual','GrLivArea','GarageCars','TotalBsmtSF','YearBuilt','FullBath']]
 y = df[['SalePrice']]
-print(y.skew())
-# Regression(x,y)
+
+x_train , x_test , y_train , y_test = train_test_split (x,y,random_state=42)
+
+x_train_variable_data = x_train[[]]
+x_train_numerical_data = x_train[['OverallQual','GrLivArea','GarageCars','TotalBsmtSF','YearBuilt','FullBath']]
+
+x_test_variable_data = x_test[[]]
+x_test_numerical_data = x_test[['OverallQual','GrLivArea','GarageCars','TotalBsmtSF','YearBuilt','FullBath']]
+
+
+Regression(y_train, y_test , x_train_variable_data , x_train_numerical_data , x_test_variable_data , x_test_numerical_data)
 
 
 # Print linear correlation values
@@ -173,4 +187,4 @@ def Showdata():
     # plt.show()
 
 
-Showdata()
+# Showdata()
