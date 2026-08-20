@@ -9,6 +9,7 @@ from sklearn.ensemble import RandomForestRegressor,GradientBoostingRegressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
+from sklearn.pipeline import Pipeline
 
 
 
@@ -49,59 +50,73 @@ def plot_pred_vs_actual(y_test,pred):
 
 
 def Regression(y_train, y_test, x_train_variable_data, x_train_numerical_data, x_test_variable_data, x_test_numerical_data):
+
     x_train , x_test = Feature_Engineering(x_train_variable_data , x_train_numerical_data , x_test_variable_data , x_test_numerical_data)
     
-
-    scaled_x_train , scaled_x_test = Feature_Scaling(x_train , x_test)
-
     param_grid = {
-        'max_depth': [ 3, 4, 5, 6, 7, 8, 9, 10 , None],
-        'min_samples_split': [2, 3, 4, 5,6,7,8,9,10],
-        'min_samples_leaf': [1, 2, 4, 8],
-        'max_features': ['sqrt', 'log2', None],
-        'n_estimators': [100, 200]
+        'model__max_depth': [ 3, 4, 5, 6, 7, 8, 9, 10 , None],
+        'model__min_samples_split': [2, 3, 4, 5,6,7,8,9,10],
+        'model__min_samples_leaf': [1, 2, 4, 8],
+        'model__max_features': ['sqrt', 'log2', None],
+        'model__n_estimators': [100, 200]
     }
+
+    # pipeline used to scale the data and fit the model in one step , prevent data leakage
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('model', RandomForestRegressor(random_state=42))
+    ])
 
     #Find Out parameters for max_depth and min_samples_split for Random Forest Regressor
     grid_search = GridSearchCV(
-        estimator=RandomForestRegressor(random_state=42),
+        estimator=pipe,
         param_grid=param_grid,
         cv=5,
         scoring='r2',
         n_jobs=-1,
         )
     
-    grid_search.fit(scaled_x_train, y_train.values.ravel())
-    RDF_best_model = grid_search.best_estimator_
+    grid_search.fit(x_train, y_train.values.ravel())
+    RDF_best_model = grid_search.best_estimator_.named_steps['model']
     print("Best parameters found: ", grid_search.best_params_)
 
 
 
     # Find Parameters for max_depth and min_samples_split for Gradient Boosting Regressor
     param_grid_gb = {
-    'n_estimators': [50, 100, 150, 200],
-    'learning_rate': [0.01, 0.05, 0.1, 0.2],
-    'max_depth': [2, 3, 4, 5],
-    'min_samples_split': [2, 4, 6, 8],
-    'subsample': [0.7, 0.8, 1.0]
+    'model__n_estimators': [50, 100, 150, 200],
+    'model__learning_rate': [0.01, 0.05, 0.1, 0.2],
+    'model__max_depth': [2, 3, 4, 5],
+    'model__min_samples_split': [2, 4, 6, 8],
+    'model__subsample': [0.7, 0.8, 1.0]
     }
 
+    # pipeline used to scale the data and fit the model in one step , prevent data leakage
+    pipe_2 = Pipeline([
+            ('scaler', StandardScaler()),
+            ('model', GradientBoostingRegressor(random_state=42))
+        ])
+    
     grid_search_gb = GridSearchCV(
-        estimator=GradientBoostingRegressor(random_state=42),
+        estimator=pipe_2,
         param_grid=param_grid_gb,
         cv=5,
         scoring='r2',
         n_jobs=-1
     )
 
-    grid_search_gb.fit(scaled_x_train, y_train.values.ravel())
+    grid_search_gb.fit(x_train, y_train.values.ravel())
 
     print("Best GB parameters found:", grid_search_gb.best_params_)
-    GB_best_model = grid_search_gb.best_estimator_
+    GB_best_model = grid_search_gb.best_estimator_.named_steps['model']
 
     #--------------------------------------------------------------------
+
+    scaled_x_train , scaled_x_test = Feature_Scaling(x_train , x_test)
+
     model = {
         "Linear Regression": LinearRegression(),
+        # Ridge and lasso are used for regularization to prevent overfitting.
         "Ridge Regression": Ridge(alpha=1.0, random_state=42),
         "Lasso Regression": Lasso(alpha=0.1, random_state=42),
         "Random Forest": RandomForestRegressor(n_estimators=RDF_best_model.n_estimators,
