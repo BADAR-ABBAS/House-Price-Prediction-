@@ -10,6 +10,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import Ridge, Lasso
 from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import SVR
 
 
 
@@ -114,33 +116,49 @@ def Regression(y_train, y_test, x_train_variable_data, x_train_numerical_data, x
 
     scaled_x_train , scaled_x_test = Feature_Scaling(x_train , x_test)
 
+    y_scalar = StandardScaler()
+    y_train_scaled = y_scalar.fit_transform(y_train.values.reshape(-1, 1)).ravel()
+
     model = {
         "Linear Regression": LinearRegression(),
         # Ridge and lasso are used for regularization to prevent overfitting.
         "Ridge Regression": Ridge(alpha=1.0, random_state=42),
         "Lasso Regression": Lasso(alpha=0.1, random_state=42),
-        "Random Forest": RandomForestRegressor(n_estimators=RDF_best_model.n_estimators,
-                                                random_state=42,
-                                                max_depth=RDF_best_model.max_depth,
-                                                min_samples_split=RDF_best_model.min_samples_split
-                                                ),
-        "Gradient Boosting": GradientBoostingRegressor(learning_rate=GB_best_model.learning_rate, 
-                                                       max_depth=GB_best_model.max_depth, 
-                                                       min_samples_split=GB_best_model.min_samples_split, 
-                                                       n_estimators=GB_best_model.n_estimators, 
-                                                       subsample=GB_best_model.subsample, 
-                                                       random_state=42
-                                                       )
+        # "Random Forest": RandomForestRegressor(n_estimators=RDF_best_model.n_estimators,
+        #                                         random_state=42,
+        #                                         max_depth=RDF_best_model.max_depth,
+        #                                         min_samples_split=RDF_best_model.min_samples_split
+        #                                         max_features=RDF_best_model.max_features
+        #                                         ),
+        "Random Forest": RandomForestRegressor(**RDF_best_model.get_params()),
+        # "Gradient Boosting": GradientBoostingRegressor(learning_rate=GB_best_model.learning_rate, 
+        #                                                max_depth=GB_best_model.max_depth, 
+        #                                                min_samples_split=GB_best_model.min_samples_split, 
+        #                                                n_estimators=GB_best_model.n_estimators, 
+        #                                                subsample=GB_best_model.subsample, 
+        #                                                random_state=42
+        #                                                ),
+        "Gradient Boosting": GradientBoostingRegressor(**GB_best_model.get_params()),
+        "KNN" : KNeighborsRegressor(n_neighbors=5), 
+        "SVR (linear)" : SVR(kernel='linear'),
+        "SVR (rbf)" : SVR(kernel='rbf')
     }
 
     for name, model in model.items():
-        model.fit(scaled_x_train,y_train.values.ravel())
-        pred = model.predict(scaled_x_test)
+        if name.startswith("SVR"):
+            model.fit(scaled_x_train, y_train_scaled)
+            pred = model.predict(scaled_x_test)
+            pred = y_scalar.inverse_transform(pred.reshape(-1, 1)).ravel()
+            train_score = model.score(scaled_x_train,y_train_scaled)
+        else:
+            model.fit(scaled_x_train,y_train.values.ravel())
+            pred = model.predict(scaled_x_test)
+            train_score = model.score(scaled_x_train,y_train.values.ravel())
 
         mse = mean_squared_error(y_test,pred)
         rmse = mse ** 0.5
         test_r2 = r2_score(y_test,pred)
-        train_score = model.score(scaled_x_train,y_train)
+        
 
         print (f"Mean square error : {name} : {mse}")
         print (f"root Mean square error : {name} : {rmse}")
